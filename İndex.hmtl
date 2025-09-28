@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sınıf Arama Sistemi</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f9f9f9; }
+    input, button { margin: 5px; padding: 8px; }
+    #results { margin-top: 20px; white-space: pre-wrap; background:#fff; padding:10px; border:1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>Sınıf Listesi Arama</h2>
+  <p>Ad Soyad veya sınıf adı yaz → Sorgula</p>
+  <input type="text" id="query" placeholder="örn: Ahmet Yılmaz veya 11A">
+  <button onclick="search()">Ara</button>
+
+  <div id="results">Sorgulanıyor...</div>
+
+  <script>
+    let pdfText = "";
+
+    // Repo kökünde duran PDF dosyan
+    const pdfUrl = "5500.pdf";
+
+    // PDF'ten metin çek
+    async function loadPdf() {
+      try {
+        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        let text = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(it => it.str).join(" ") + "\n";
+        }
+        pdfText = text;
+        document.getElementById("results").innerText = "Sorgulanıyor... ✅ Arama yapabilirsiniz.";
+      } catch (err) {
+        document.getElementById("results").innerText = "PDF yüklenemedi ❌ " + err.message;
+      }
+    }
+    loadPdf();
+
+    // Arama
+    function search() {
+      const q = document.getElementById("query").value.trim().toLowerCase();
+      if (!q || !pdfText) {
+        alert("PDF henüz yüklenmedi veya arama boş!");
+        return;
+      }
+
+      const lines = pdfText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      let results = [];
+
+      // Eğer giriş "10A", "11B", "12C" gibi bir sınıf adıysa
+      const classMatch = q.match(/^\\d{1,2}[a-zçğıöşü]$/i);
+      if (classMatch) {
+        let capture = false;
+        for (const line of lines) {
+          const lower = line.toLowerCase();
+          if (lower.includes(q)) {
+            capture = true; // sınıf bulundu, öğrencileri yakalamaya başla
+            results.push("📌 " + line);
+            continue;
+          }
+          if (capture) {
+            // Eğer yeni bir sınıf başlığına geldiysek dur
+            if (/^\\d{1,2}[a-zçğıöşü]/i.test(line)) break;
+            results.push(line);
+          }
+        }
+      } else {
+        // Normal ad/soyad araması
+        for (const line of lines) {
+          if (line.toLowerCase().includes(q)) {
+            results.push(line);
+          }
+        }
+      }
+
+      document.getElementById("results").innerText = results.length
+        ? results.join("\\n")
+        : "Sonuç bulunamadı.";
+    }
+  </script>
+</body>
+</html>
